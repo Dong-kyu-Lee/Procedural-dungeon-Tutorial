@@ -253,6 +253,9 @@ MonoBehaviour:
   maxIterations: 5
   corridorWidth: 5
   material: {fileID: 2100000, guid: 856e8347d05acd441a4f09516f4672b5, type: 2}
+  roomBottomCornerModifier: 0.146
+  roomTopCornerModifier: 0.844
+  roomOffset: 1
 --- !u!4 &833670118
 Transform:
   m_ObjectHideFlags: 0
