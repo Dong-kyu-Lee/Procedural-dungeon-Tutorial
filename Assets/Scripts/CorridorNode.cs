@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class CorridorNode : Node
 {
@@ -46,10 +48,10 @@ public class CorridorNode : Node
         // 복도가 놓일 왼쪽 방
         Node leftStructure = null;
         // 왼쪽 방이 될 수 있는 노드들을 가져옴.
-        List<Node> leftStructureChildren = StructureHelper.TrverseGraphToExtractLowestLeafs(structure1);
+        List<Node> leftStructureChildren = StructureHelper.TraverseGraphToExtractLowestLeafs(structure1);
         // 복도가 놓일 오른쪽 방
         Node rightStructure = null;
-        List<Node> rightStructureChildren = StructureHelper.TrverseGraphToExtractLowestLeafs(structure2);
+        List<Node> rightStructureChildren = StructureHelper.TraverseGraphToExtractLowestLeafs(structure2);
 
         // 왼쪽 방들 중, 가장 오른쪽에 있는 방을 선택하기 위해 정렬
         // 가장 오른쪽 방을 선택하는 이유 : 가장 오른쪽이 아닌 방을 선택할 경우,
@@ -105,6 +107,7 @@ public class CorridorNode : Node
         TopRightAreaCorner = new Vector2Int(rightStructure.TopLeftAreaCorner.x, y + this.corridorWidth);
     }
 
+    // 왼노드와 오른노드 간에 연결할 수 있는 복도의 중심 Y좌표를 반환하는 함수
     private int GetValidYForNeighbourLeftRight(Vector2Int leftNodeUp, Vector2Int leftNodeDown, Vector2Int rightNodeUp, Vector2Int rightNodeDown)
     {
         // 오른쪽 방 높이가 왼쪽 방보다 크고, 오른쪽 방 높이 안에 왼쪽 방 높이가 쏙 들어가는 경우
@@ -142,7 +145,94 @@ public class CorridorNode : Node
     // 두 공간의 위치가 상하로 있는 경우
     private void ProcessRoomInRelationUpOrDown(Node structure1, Node structure2)
     {
-        throw new NotImplementedException();
+        Node bottomStructure = null;
+        List<Node> structureBottomChildren = StructureHelper.TraverseGraphToExtractLowestLeafs(structure1);
+        Node topStructure = null;
+        List<Node> structureAboveChildren = StructureHelper.TraverseGraphToExtractLowestLeafs(structure2);
+
+        var sortedBottomStructure = structureBottomChildren.OrderByDescending(child => child.TopRightAreaCorner.y).ToList();
+
+        if (sortedBottomStructure.Count == 1)
+        {
+            bottomStructure = sortedBottomStructure[0];
+        }
+        else
+        {
+            int maxY = sortedBottomStructure[0].TopLeftAreaCorner.y;
+            sortedBottomStructure = sortedBottomStructure.Where(
+                child => Mathf.Abs(child.TopLeftAreaCorner.y - maxY) < 10).ToList();
+            int index = UnityEngine.Random.Range(0, sortedBottomStructure.Count);
+            bottomStructure = sortedBottomStructure[index];
+        }
+
+        var possibleNeighboursInTopStructure = structureAboveChildren.Where(
+            child => GetValidXForNeighbourUpDown(
+                bottomStructure.TopLeftAreaCorner,
+                bottomStructure.TopRightAreaCorner,
+                child.BottomLeftAreaCorner,
+                child.BottomRightAreaCorner)
+            != -1).OrderBy(child => child.BottomRightAreaCorner.y).ToList();
+        if (possibleNeighboursInTopStructure.Count == 0)
+        {
+            topStructure = structure2;
+        }
+        else
+        {
+            topStructure = possibleNeighboursInTopStructure[0];
+        }
+        int x = GetValidXForNeighbourUpDown(
+                bottomStructure.TopLeftAreaCorner,
+                bottomStructure.TopRightAreaCorner,
+                topStructure.BottomLeftAreaCorner,
+                topStructure.BottomRightAreaCorner);
+        while (x == -1 && sortedBottomStructure.Count > 1)
+        {
+            sortedBottomStructure = sortedBottomStructure.Where(child => child.TopLeftAreaCorner.x != topStructure.TopLeftAreaCorner.x).ToList();
+            bottomStructure = sortedBottomStructure[0];
+            x = GetValidXForNeighbourUpDown(
+                bottomStructure.TopLeftAreaCorner,
+                bottomStructure.TopRightAreaCorner,
+                topStructure.BottomLeftAreaCorner,
+                topStructure.BottomRightAreaCorner);
+        }
+        BottomLeftAreaCorner = new Vector2Int(x, bottomStructure.TopLeftAreaCorner.y);
+        TopRightAreaCorner = new Vector2Int(x + this.corridorWidth, topStructure.BottomLeftAreaCorner.y);
+    }
+
+    // 위노드와 아래노드 간에 연결할 수 있는 복도의 중심X좌표를 반환하는 함수
+    private int GetValidXForNeighbourUpDown(Vector2Int bottomNodeLeft, Vector2Int bottomNodeRight, Vector2Int topNodeLeft, Vector2Int topNodeRight)
+    {
+        // 탑노드 너비에 바텀노드 너비가 들어가 있음
+        if(topNodeLeft.x < bottomNodeLeft.x && bottomNodeRight.x < topNodeRight.x)
+        {
+            return StructureHelper.CalculateMiddlePoint(
+                bottomNodeLeft + new Vector2Int(modifierDistanceFromWall, 0),
+                bottomNodeRight - new Vector2Int(this.corridorWidth + modifierDistanceFromWall, 0)
+                ).x;
+        }
+        // 바텀노드 너비에 탑노드 너비가 들어가 있음
+        if(topNodeLeft.x >= bottomNodeLeft.x && bottomNodeRight.x >= topNodeRight.x)
+        {
+            return StructureHelper.CalculateMiddlePoint(
+                topNodeLeft + new Vector2Int(modifierDistanceFromWall, 0),
+                topNodeRight - new Vector2Int(this.corridorWidth + modifierDistanceFromWall, 0)
+                ).x;
+        }
+        if(bottomNodeLeft.x >= topNodeLeft.x &&bottomNodeLeft.x <= topNodeRight.x)
+        {
+            return StructureHelper.CalculateMiddlePoint(
+                bottomNodeLeft + new Vector2Int(modifierDistanceFromWall, 0),
+                topNodeRight - new Vector2Int(this.corridorWidth + modifierDistanceFromWall, 0)
+                ).x;
+        }
+        if(bottomNodeRight.x <= topNodeRight.x && bottomNodeRight.x >= topNodeLeft.x)
+        {
+            return StructureHelper.CalculateMiddlePoint(
+                topNodeLeft + new Vector2Int(modifierDistanceFromWall, 0),
+                bottomNodeRight - new Vector2Int(this.corridorWidth + modifierDistanceFromWall, 0)
+                ).x;
+        }
+        return -1;
     }
 
     private RelativePosition CheckPositionStructure2AginstStructure1()

@@ -6,7 +6,7 @@ using Random = UnityEngine.Random;
 public static class StructureHelper
 {
     // 트리의 Leaf노드. 즉, room에 해당하는 노드를 가져온다.
-    public static List<Node> TrverseGraphToExtractLowestLeafs(Node parentNode)
+    public static List<Node> TraverseGraphToExtractLowestLeafs(Node parentNode)
     {
         Queue<Node> nodesToCheck = new Queue<Node>();
         List<Node> listToReturn = new List<Node>();

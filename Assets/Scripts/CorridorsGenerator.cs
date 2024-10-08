@@ -26,5 +26,7 @@ public class CorridorsGenerator
                 corridorWidth);
             corridorList.Add(corridor);
         }
+
+        return corridorList;
     }
 }
